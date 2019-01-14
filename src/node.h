@@ -77,7 +77,6 @@ struct cmark_node {
     cmark_heading heading;
     cmark_link link;
     cmark_custom custom;
-    int html_block_type;
   } as;
 };
 

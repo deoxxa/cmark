@@ -24,7 +24,6 @@ static const char *RIGHTSINGLEQUOTE = "\xE2\x80\x99";
 // Macros for creating various kinds of simple.
 #define make_str(subj, sc, ec, s) make_literal(subj, CMARK_NODE_TEXT, sc, ec, s)
 #define make_code(subj, sc, ec, s) make_literal(subj, CMARK_NODE_CODE, sc, ec, s)
-#define make_raw_html(subj, sc, ec, s) make_literal(subj, CMARK_NODE_HTML_INLINE, sc, ec, s)
 #define make_linebreak(mem) make_simple(mem, CMARK_NODE_LINEBREAK)
 #define make_softbreak(mem) make_simple(mem, CMARK_NODE_SOFTBREAK)
 #define make_emph(mem) make_simple(mem, CMARK_NODE_EMPH)
@@ -632,6 +631,7 @@ static void process_emphasis(subject *subj, delimiter *stack_bottom) {
         break;
       default:
         assert(false);
+        return;
       }
 
       // Now look backwards for first matching opener:
@@ -831,9 +831,9 @@ cmark_chunk cmark_clean_title(cmark_mem *mem, cmark_chunk *title) {
   return cmark_chunk_buf_detach(&buf);
 }
 
-// Parse an autolink or HTML tag.
+// Parse an autolink.
 // Assumes the subject has a '<' character at the current position.
-static cmark_node *handle_pointy_brace(subject *subj, int options) {
+static cmark_node *handle_pointy_brace(subject *subj) {
   bufsize_t matchlen = 0;
   cmark_chunk contents;
 
@@ -855,16 +855,6 @@ static cmark_node *handle_pointy_brace(subject *subj, int options) {
     subj->pos += matchlen;
 
     return make_autolink(subj, subj->pos - 1 - matchlen, subj->pos - 1, contents, 1);
-  }
-
-  // finally, try to match an html tag
-  matchlen = scan_html_tag(&subj->input, subj->pos);
-  if (matchlen > 0) {
-    contents = cmark_chunk_dup(&subj->input, subj->pos - 1, matchlen + 1);
-    subj->pos += matchlen;
-    cmark_node *node = make_raw_html(subj, subj->pos - matchlen - 1, subj->pos - 1, contents);
-    adjust_subj_node_newlines(subj, node, matchlen, 1, options);
-    return node;
   }
 
   // if nothing matches, just return the opening <:
@@ -1225,7 +1215,7 @@ static int parse_inline(subject *subj, cmark_node *parent, int options) {
     new_inl = handle_entity(subj);
     break;
   case '<':
-    new_inl = handle_pointy_brace(subj, options);
+    new_inl = handle_pointy_brace(subj);
     break;
   case '*':
   case '_':

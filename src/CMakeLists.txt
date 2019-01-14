@@ -33,22 +33,11 @@ set(LIBRARY_SOURCES
   buffer.c
   references.c
   render.c
-  man.c
-  xml.c
-  html.c
-  commonmark.c
-  latex.c
   houdini_href_e.c
   houdini_html_e.c
   houdini_html_u.c
   cmark_ctype.c
   ${HEADERS}
-  )
-
-set(PROGRAM "cmark")
-set(PROGRAM_SOURCES
-  ${LIBRARY_SOURCES}
-  main.c
   )
 
 include_directories(. ${CMAKE_CURRENT_BINARY_DIR})
@@ -58,12 +47,7 @@ configure_file(${CMAKE_CURRENT_SOURCE_DIR}/cmark_version.h.in
 
 include (GenerateExportHeader)
 
-add_executable(${PROGRAM} ${PROGRAM_SOURCES})
 add_compiler_export_flags()
-
-# Disable the PUBLIC declarations when compiling the executable:
-set_target_properties(${PROGRAM} PROPERTIES
-  COMPILE_FLAGS -DCMARK_STATIC_DEFINE)
 
 # Check integrity of node structure when compiled as debug:
 set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -DCMARK_DEBUG_NODES")
@@ -123,11 +107,6 @@ if (CMARK_STATIC)
   list(APPEND CMARK_INSTALL ${STATICLIBRARY})
 endif()
 
-if (MSVC)
-  set_property(TARGET ${PROGRAM}
-    APPEND PROPERTY LINK_FLAGS /INCREMENTAL:NO)
-endif(MSVC)
-
 if(NOT MSVC OR CMAKE_HOST_SYSTEM_NAME STREQUAL Windows)
   set(CMAKE_INSTALL_SYSTEM_RUNTIME_LIBS_NO_WARNINGS ON)
   include(InstallRequiredSystemLibraries)
@@ -135,7 +114,7 @@ endif()
 
 set(libdir lib${LIB_SUFFIX})
 
-install(TARGETS ${PROGRAM} ${CMARK_INSTALL}
+install(TARGETS ${CMARK_INSTALL}
   EXPORT cmark
   RUNTIME DESTINATION bin
   LIBRARY DESTINATION ${libdir}

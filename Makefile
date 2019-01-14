@@ -187,7 +187,7 @@ newbench:
 	    python3 'bench/stats.py'; done
 
 format:
-	$(CLANG_FORMAT) src/*.c src/*.h api_test/*.c api_test/*.h
+	$(CLANG_FORMAT) src/*.c src/*.h
 
 operf: $(CMARK)
 	operf $< < $(BENCHFILE) > /dev/null

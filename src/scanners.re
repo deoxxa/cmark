@@ -35,36 +35,6 @@ bufsize_t _scan_at(bufsize_t (*scanner)(const unsigned char *), cmark_chunk *c, 
 
   escaped_char = [\\][!"#$%&'()*+,./:;<=>?@[\\\]^_`{|}~-];
 
-  tagname = [A-Za-z][A-Za-z0-9-]*;
-
-  blocktagname = 'address'|'article'|'aside'|'base'|'basefont'|'blockquote'|'body'|'caption'|'center'|'col'|'colgroup'|'dd'|'details'|'dialog'|'dir'|'div'|'dl'|'dt'|'fieldset'|'figcaption'|'figure'|'footer'|'form'|'frame'|'frameset'|'h1'|'h2'|'h3'|'h4'|'h5'|'h6'|'head'|'header'|'hr'|'html'|'iframe'|'legend'|'li'|'link'|'main'|'menu'|'menuitem'|'nav'|'noframes'|'ol'|'optgroup'|'option'|'p'|'param'|'section'|'source'|'title'|'summary'|'table'|'tbody'|'td'|'tfoot'|'th'|'thead'|'title'|'tr'|'track'|'ul';
-
-  attributename = [a-zA-Z_:][a-zA-Z0-9:._-]*;
-
-  unquotedvalue = [^ \t\r\n\v\f"'=<>`\x00]+;
-  singlequotedvalue = ['][^'\x00]*['];
-  doublequotedvalue = ["][^"\x00]*["];
-
-  attributevalue = unquotedvalue | singlequotedvalue | doublequotedvalue;
-
-  attributevaluespec = spacechar* [=] spacechar* attributevalue;
-
-  attribute = spacechar+ attributename attributevaluespec?;
-
-  opentag = tagname attribute* spacechar* [/]? [>];
-  closetag = [/] tagname spacechar* [>];
-
-  htmlcomment = "!---->" | ("!--" ([-]? [^\x00>-]) ([-]? [^\x00-])* "-->");
-
-  processinginstruction = "?" ([^?>\x00]+ | [?][^>\x00] | [>])* "?>";
-
-  declaration = "!" [A-Z]+ spacechar+ [^>\x00]* ">";
-
-  cdata = "![CDATA[" ([^\]\x00]+ | "]" [^\]\x00] | "]]" [^>\x00])* "]]>";
-
-  htmltag = opentag | closetag | htmlcomment | processinginstruction |
-            declaration | cdata;
-
   in_parens_nosp   = [(] (reg_char|escaped_char|[\\])* [)];
 
   in_double_quotes = ["] (escaped_char|[^"\x00])* ["];
@@ -107,100 +77,6 @@ bufsize_t _scan_autolink_email(const unsigned char *p)
     [a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?
     ([.][a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*
     [>] { return (bufsize_t)(p - start); }
-  * { return 0; }
-*/
-}
-
-// Try to match an HTML tag after first <, returning num of chars matched.
-bufsize_t _scan_html_tag(const unsigned char *p)
-{
-  const unsigned char *marker = NULL;
-  const unsigned char *start = p;
-/*!re2c
-  htmltag { return (bufsize_t)(p - start); }
-  * { return 0; }
-*/
-}
-
-// Try to match an HTML block tag start line, returning
-// an integer code for the type of block (1-6, matching the spec).
-// #7 is handled by a separate function, below.
-bufsize_t _scan_html_block_start(const unsigned char *p)
-{
-  const unsigned char *marker = NULL;
-/*!re2c
-  [<] ('script'|'pre'|'style') (spacechar | [>]) { return 1; }
-  '<!--' { return 2; }
-  '<?' { return 3; }
-  '<!' [A-Z] { return 4; }
-  '<![CDATA[' { return 5; }
-  [<] [/]? blocktagname (spacechar | [/]? [>])  { return 6; }
-  * { return 0; }
-*/
-}
-
-// Try to match an HTML block tag start line of type 7, returning
-// 7 if successful, 0 if not.
-bufsize_t _scan_html_block_start_7(const unsigned char *p)
-{
-  const unsigned char *marker = NULL;
-/*!re2c
-  [<] (opentag | closetag) [\t\n\f ]* [\r\n] { return 7; }
-  * { return 0; }
-*/
-}
-
-// Try to match an HTML block end line of type 1
-bufsize_t _scan_html_block_end_1(const unsigned char *p)
-{
-  const unsigned char *marker = NULL;
-  const unsigned char *start = p;
-/*!re2c
-  [^\n\x00]* [<] [/] ('script'|'pre'|'style') [>] { return (bufsize_t)(p - start); }
-  * { return 0; }
-*/
-}
-
-// Try to match an HTML block end line of type 2
-bufsize_t _scan_html_block_end_2(const unsigned char *p)
-{
-  const unsigned char *marker = NULL;
-  const unsigned char *start = p;
-/*!re2c
-  [^\n\x00]* '-->' { return (bufsize_t)(p - start); }
-  * { return 0; }
-*/
-}
-
-// Try to match an HTML block end line of type 3
-bufsize_t _scan_html_block_end_3(const unsigned char *p)
-{
-  const unsigned char *marker = NULL;
-  const unsigned char *start = p;
-/*!re2c
-  [^\n\x00]* '?>' { return (bufsize_t)(p - start); }
-  * { return 0; }
-*/
-}
-
-// Try to match an HTML block end line of type 4
-bufsize_t _scan_html_block_end_4(const unsigned char *p)
-{
-  const unsigned char *marker = NULL;
-  const unsigned char *start = p;
-/*!re2c
-  [^\n\x00]* '>' { return (bufsize_t)(p - start); }
-  * { return 0; }
-*/
-}
-
-// Try to match an HTML block end line of type 5
-bufsize_t _scan_html_block_end_5(const unsigned char *p)
-{
-  const unsigned char *marker = NULL;
-  const unsigned char *start = p;
-/*!re2c
-  [^\n\x00]* ']]>' { return (bufsize_t)(p - start); }
   * { return 0; }
 */
 }

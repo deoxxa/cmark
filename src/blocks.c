@@ -284,7 +284,6 @@ static cmark_node *finalize(cmark_parser *parser, cmark_node *b) {
       assert(pos < node_content->size);
 
       cmark_strbuf tmp = CMARK_BUF_INIT(parser->mem);
-      houdini_unescape_html_f(&tmp, node_content->ptr, pos);
       cmark_strbuf_trim(&tmp);
       cmark_strbuf_unescape(&tmp);
       b->as.code.info = cmark_chunk_buf_detach(&tmp);
@@ -296,10 +295,6 @@ static cmark_node *finalize(cmark_parser *parser, cmark_node *b) {
       cmark_strbuf_drop(node_content, pos);
     }
     b->as.code.literal = cmark_chunk_buf_detach(node_content);
-    break;
-
-  case CMARK_NODE_HTML_BLOCK:
-    b->as.literal = cmark_chunk_buf_detach(node_content);
     break;
 
   case CMARK_NODE_LIST:      // determine tight/loose status
@@ -766,30 +761,6 @@ static bool parse_code_block_prefix(cmark_parser *parser, cmark_chunk *input,
   return res;
 }
 
-static bool parse_html_block_prefix(cmark_parser *parser,
-                                    cmark_node *container) {
-  bool res = false;
-  int html_block_type = container->as.html_block_type;
-
-  assert(html_block_type >= 1 && html_block_type <= 7);
-  switch (html_block_type) {
-  case 1:
-  case 2:
-  case 3:
-  case 4:
-  case 5:
-    // these types of blocks can accept blanks
-    res = true;
-    break;
-  case 6:
-  case 7:
-    res = !parser->blank;
-    break;
-  }
-
-  return res;
-}
-
 /**
  * For each containing node, try to parse the associated line start.
  *
@@ -827,10 +798,6 @@ static cmark_node *check_open_blocks(cmark_parser *parser, cmark_chunk *input,
     case CMARK_NODE_HEADING:
       // a heading can never contain more than one line
       goto done;
-    case CMARK_NODE_HTML_BLOCK:
-      if (!parse_html_block_prefix(parser, container))
-        goto done;
-      break;
     case CMARK_NODE_PARAGRAPH:
       if (parser->blank)
         goto done;
@@ -866,8 +833,7 @@ static void open_new_blocks(cmark_parser *parser, cmark_node **container,
   int save_offset;
   int save_column;
 
-  while (cont_type != CMARK_NODE_CODE_BLOCK &&
-         cont_type != CMARK_NODE_HTML_BLOCK) {
+  while (cont_type != CMARK_NODE_CODE_BLOCK) {
 
     S_find_first_nonspace(parser, input);
     indented = parser->indent >= CODE_INDENT;
@@ -922,16 +888,6 @@ static void open_new_blocks(cmark_parser *parser, cmark_node **container,
                        parser->first_nonspace + matched - parser->offset,
                        false);
 
-    } else if (!indented && ((matched = scan_html_block_start(
-                                  input, parser->first_nonspace)) ||
-                             (cont_type != CMARK_NODE_PARAGRAPH &&
-                              (matched = scan_html_block_start_7(
-                                   input, parser->first_nonspace))))) {
-      *container = add_child(parser, *container, CMARK_NODE_HTML_BLOCK,
-                             parser->first_nonspace + 1);
-      (*container)->as.html_block_type = matched;
-      // note, we don't adjust parser->offset because the tag is part of the
-      // text
     } else if (!indented && cont_type == CMARK_NODE_PARAGRAPH &&
                (lev =
                     scan_setext_heading_line(input, parser->first_nonspace))) {
@@ -1079,45 +1035,6 @@ static void add_text_to_container(cmark_parser *parser, cmark_node *container,
 
     if (S_type(container) == CMARK_NODE_CODE_BLOCK) {
       add_line(container, input, parser);
-    } else if (S_type(container) == CMARK_NODE_HTML_BLOCK) {
-      add_line(container, input, parser);
-
-      int matches_end_condition;
-      switch (container->as.html_block_type) {
-      case 1:
-        // </script>, </style>, </pre>
-        matches_end_condition =
-            scan_html_block_end_1(input, parser->first_nonspace);
-        break;
-      case 2:
-        // -->
-        matches_end_condition =
-            scan_html_block_end_2(input, parser->first_nonspace);
-        break;
-      case 3:
-        // ?>
-        matches_end_condition =
-            scan_html_block_end_3(input, parser->first_nonspace);
-        break;
-      case 4:
-        // >
-        matches_end_condition =
-            scan_html_block_end_4(input, parser->first_nonspace);
-        break;
-      case 5:
-        // ]]>
-        matches_end_condition =
-            scan_html_block_end_5(input, parser->first_nonspace);
-        break;
-      default:
-        matches_end_condition = 0;
-        break;
-      }
-
-      if (matches_end_condition) {
-        container = finalize(parser, container);
-        assert(parser->current != NULL);
-      }
     } else if (parser->blank) {
       // ??? do nothing
     } else if (accepts_lines(S_type(container))) {
